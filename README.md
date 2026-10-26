@@ -104,10 +104,12 @@ Health check: http://localhost:8000/api/v1/health
 ```powershell
 # In a second terminal, from the repo root
 cd frontend
-npm install
+npm install                         # or npm.cmd if 'npm' fails on Windows PowerShell
 copy .env.example .env              # edit VITE_API_URL if needed
-npm run dev                         # http://localhost:5173
+npm run dev                         # http://localhost:5173 (or npm.cmd run dev)
 ```
+
+> **Windows PowerShell note:** If `npm` commands are blocked or fail to resolve in PowerShell, use `npm.cmd` instead (e.g. `npm.cmd install`, `npm.cmd run dev`).
 
 ---
 

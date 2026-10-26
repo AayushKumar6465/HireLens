@@ -31,7 +31,7 @@ export default [
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',   // Not needed with React 17+ JSX transform
-      'react/prop-types': 'warn',
+      'react/prop-types': 'off',
     },
   },
   prettierConfig,

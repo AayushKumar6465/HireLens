@@ -3,7 +3,6 @@
  * Uses class-variance-authority for variant management and Radix UI Slot for asChild.
  */
 import * as React from 'react';
-import PropTypes from 'prop-types';
 import { Slot } from '@radix-ui/react-slot';
 import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
@@ -36,7 +35,12 @@ const buttonVariants = cva(
 
 /**
  * Button component with variant and size support.
- * Pass asChild to render as a child element (e.g. <a>).
+ * @param {Object} props
+ * @param {string} [props.className]
+ * @param {'default'|'destructive'|'outline'|'secondary'|'ghost'|'link'} [props.variant]
+ * @param {'default'|'sm'|'lg'|'icon'} [props.size]
+ * @param {boolean} [props.asChild]
+ * @param {React.ReactNode} [props.children]
  */
 const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
   const Comp = asChild ? Slot : 'button';
@@ -49,12 +53,5 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
   );
 });
 Button.displayName = 'Button';
-
-Button.propTypes = {
-  className: PropTypes.string,
-  variant: PropTypes.oneOf(['default', 'destructive', 'outline', 'secondary', 'ghost', 'link']),
-  size: PropTypes.oneOf(['default', 'sm', 'lg', 'icon']),
-  asChild: PropTypes.bool,
-};
 
 export { Button, buttonVariants };

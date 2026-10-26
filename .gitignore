@@ -6,9 +6,6 @@ __pycache__/
 backend/.venv/
 backend/storage/
 
-# Private project plan — do not push to GitHub
-PROJECT_PLAN.md
-
 # Environment
 .env
 *.env
