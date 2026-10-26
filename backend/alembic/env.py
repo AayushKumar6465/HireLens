@@ -6,34 +6,57 @@ variable used by the application is also used for migrations.
 Imports app.models so that autogenerate can detect schema changes.
 """
 
-import sys
 import os
+import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
+from sqlalchemy.engine import make_url
+
 from alembic import context
 
 # ---------------------------------------------------------------------------
 # Ensure the backend/ directory (which contains the `app` package) is on
 # sys.path when alembic is run from the repo root or from backend/.
 # ---------------------------------------------------------------------------
-_here = os.path.dirname(os.path.abspath(__file__))          # backend/alembic/
-_backend = os.path.dirname(_here)                            # backend/
+_here = os.path.dirname(os.path.abspath(__file__))  # backend/alembic/
+_backend = os.path.dirname(_here)  # backend/
 if _backend not in sys.path:
     sys.path.insert(0, _backend)
 
 # ---------------------------------------------------------------------------
 # Application imports — must come after sys.path adjustment.
 # ---------------------------------------------------------------------------
-from app.core.config import settings  # noqa: E402
-from app.db.base import Base           # noqa: E402
-import app.models                      # noqa: E402, F401 — registers all models
+import app.models  # noqa: F401 — registers all models
+from app.core.config import settings
+from app.db.base import Base
+
+
+def get_direct_neon_url(raw_url: str) -> str:
+    """
+    Derive a direct (non-pooled) Neon connection URL for migrations.
+
+    Neon connection pooler endpoints include '-pooler' in the host.
+    Migrations require direct DDL access without pooler transaction wrappers.
+    This parses the URL safely, strips '-pooler' from the host, and preserves
+    all other parameters including sslmode.
+    """
+    if not raw_url:
+        return ""
+    url = make_url(raw_url)
+    if url.host and "-pooler" in url.host:
+        url = url.set(host=url.host.replace("-pooler", ""))
+    return url.render_as_string(hide_password=False)
+
 
 # Alembic config object, giving access to values in alembic.ini.
 config = context.config
 
+# Derive direct URL for migrations only
+migration_url = get_direct_neon_url(settings.database_url)
+
 # Override the sqlalchemy.url from settings so we never hard-code it.
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", migration_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
@@ -64,12 +87,11 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
-    Creates an Engine from the configured URL and associates a connection
+    Creates an Engine from the direct migration URL and associates a connection
     with the migration context.
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        migration_url,
         poolclass=pool.NullPool,
     )
 
