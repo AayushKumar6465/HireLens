@@ -1,26 +1,40 @@
-import { Button } from '@/components/ui/button';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/common/ProtectedRoute';
+import AppShell from './components/layout/AppShell';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import JobsList from './pages/JobsList';
+import CreateJob from './pages/CreateJob';
+import JobDetail from './pages/JobDetail';
 
-/**
- * Root App component.
- * Placeholder for Phase 0 — replaced with routing and layout in Phase 4.
- */
-function App() {
+export default function App() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-      <div className="text-center space-y-4 p-8">
-        <h1 className="text-4xl font-semibold text-slate-900 dark:text-slate-50">
-          HireLens
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-lg">
-          AI Resume Screening &amp; Candidate Ranking
-        </p>
-        <Button variant="default" size="lg">
-          Get Started
-        </Button>
-        <p className="text-xs text-slate-400">Phase 0 scaffold — backend and frontend running ✓</p>
-      </div>
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* Protected Application Routes */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/jobs" element={<JobsList />} />
+            <Route path="/jobs/new" element={<CreateJob />} />
+            <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/" element={<Navigate to="/jobs" replace />} />
+          </Route>
+
+          {/* Catch-all Fallback */}
+          <Route path="*" element={<Navigate to="/jobs" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
-
-export default App;

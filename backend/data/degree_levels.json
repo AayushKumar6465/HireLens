@@ -1,5 +1,91 @@
 {
-  "_comment": "Degree level hierarchy used for education scoring. Populated in Phase 2.",
-  "version": "0.1.0",
-  "levels": []
+  "version": "1.0.0",
+  "levels": [
+    {
+      "key": "doctorate",
+      "rank": 5,
+      "label": "Doctorate / Ph.D.",
+      "aliases": [
+        "phd",
+        "ph.d",
+        "ph.d.",
+        "doctorate",
+        "doctor of philosophy",
+        "dphil",
+        "d.phil"
+      ]
+    },
+    {
+      "key": "master",
+      "rank": 4,
+      "label": "Master's Degree",
+      "aliases": [
+        "master",
+        "masters",
+        "master's",
+        "ms",
+        "m.s.",
+        "msc",
+        "m.sc.",
+        "mtech",
+        "m.tech",
+        "mca",
+        "mba",
+        "m.b.a.",
+        "m.e.",
+        "me"
+      ]
+    },
+    {
+      "key": "bachelor",
+      "rank": 3,
+      "label": "Bachelor's Degree",
+      "aliases": [
+        "bachelor",
+        "bachelors",
+        "bachelor's",
+        "bs",
+        "b.s.",
+        "bsc",
+        "b.sc.",
+        "btech",
+        "b.tech",
+        "bca",
+        "bba",
+        "b.e.",
+        "be",
+        "b.a.",
+        "ba",
+        "undergraduate"
+      ]
+    },
+    {
+      "key": "associate",
+      "rank": 2,
+      "label": "Associate Degree",
+      "aliases": [
+        "associate",
+        "associates",
+        "associate's",
+        "as",
+        "a.s.",
+        "aa",
+        "a.a."
+      ]
+    },
+    {
+      "key": "high_school",
+      "rank": 1,
+      "label": "High School / Diploma",
+      "aliases": [
+        "high school",
+        "secondary school",
+        "diploma",
+        "ged",
+        "12th",
+        "senior secondary",
+        "matriculation"
+      ]
+    }
+  ]
 }

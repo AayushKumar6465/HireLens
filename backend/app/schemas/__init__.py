@@ -17,7 +17,10 @@ from app.schemas.job import (
     JobRequirementResponse,
     JobResponse,
     JobUpdate,
+    MatchSummaryResponse,
     PaginatedJobsResponse,
+    PaginatedRankingResponse,
+    RankedCandidateItem,
 )
 from app.schemas.resume import (
     BatchUploadResponse,
@@ -39,8 +42,11 @@ __all__ = [
     "JobResponse",
     "JobUpdate",
     "LoginRequest",
+    "MatchSummaryResponse",
     "PaginatedJobsResponse",
+    "PaginatedRankingResponse",
     "PaginatedUsersResponse",
+    "RankedCandidateItem",
     "RefreshTokenRequest",
     "RegisterRequest",
     "ResumeDuplicateItemResult",

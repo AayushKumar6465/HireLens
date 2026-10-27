@@ -21,6 +21,7 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -49,6 +50,7 @@ from app.schemas.resume import (
 )
 from app.services import storage_service, upload_validator
 from app.services.upload_validator import FileValidationError
+from app.tasks.processing import process_resume_task
 
 logger = get_logger(__name__)
 
@@ -72,6 +74,7 @@ def upload_resumes(
     files: Annotated[
         list[UploadFile], File(description="1-20 PDF or DOCX resume documents")
     ],
+    background_tasks: BackgroundTasks,
     job_id: Annotated[
         uuid.UUID | None, Form(description="Optional target job ID")
     ] = None,
@@ -196,6 +199,9 @@ def upload_resumes(
         db.commit()
         db.refresh(resume)
 
+        # Dispatch asynchronous parsing task
+        background_tasks.add_task(process_resume_task, resume.id)
+
         log_event(
             logger,
             "resume_uploaded",
@@ -256,7 +262,20 @@ def get_resume(
 ) -> ResumeResponse:
     """Retrieve resume metadata and details. Returns 404 for foreign resumes."""
     resume = _get_owner_scoped_resume(db, current_user, id)
-    return ResumeResponse.model_validate(resume)
+    resp = ResumeResponse.model_validate(resume)
+    if resume.parsed_resume:
+        pr = resume.parsed_resume
+        resp.parsed_data = {
+            "raw_text": pr.raw_text,
+            "skills": pr.skills,
+            "experience": pr.experience,
+            "education": pr.education,
+            "total_experience_years": pr.total_experience_years,
+            "highest_degree": pr.highest_degree,
+            "sections": pr.sections,
+            "parser_version": pr.parser_version,
+        }
+    return resp
 
 
 @router.get(

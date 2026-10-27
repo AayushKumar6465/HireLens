@@ -1,5 +1,5 @@
 """
-Job opening and requirement management endpoints (/api/v1/jobs).
+Job opening, requirement, and candidate ranking endpoints (/api/v1/jobs).
 
 Endpoints:
 - POST /: Create a job opening with optional requirements (201 Created)
@@ -10,6 +10,10 @@ Endpoints:
 - POST /{id}/extract-requirements: Suggest skills from job description (200 OK)
 - POST /{id}/requirements: Add requirement to job (201 Created)
 - DELETE /{id}/requirements/{requirement_id}: Delete requirement (204 No Content)
+- POST /{id}/match: Trigger matching and score all parsed resumes for the job (200 OK)
+- GET /{id}/ranking: Retrieve sorted and filtered candidate ranking (200 OK)
+- GET /{id}/candidates/{candidate_id}/match: Retrieve candidate match breakdown (200 OK)
+- GET /{id}/export.csv: Export candidate ranking as CSV with formula protection (200 OK)
 
 Ownership:
 - All operations strictly owner-scoped. Foreign jobs return HTTP 404 (admins cannot bypass).
@@ -20,7 +24,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -32,9 +36,13 @@ from app.schemas.job import (
     JobRequirementResponse,
     JobResponse,
     JobUpdate,
+    MatchSummaryResponse,
     PaginatedJobsResponse,
+    PaginatedRankingResponse,
+    RankedCandidateItem,
 )
 from app.services import job_service
+from app.services.matching import ranker
 
 router = APIRouter()
 
@@ -197,4 +205,114 @@ def delete_requirement(
         user=current_user,
         job_id=id,
         requirement_id=requirement_id,
+    )
+
+
+@router.post(
+    "/{id}/match",
+    response_model=MatchSummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Trigger scoring and ranking for all parsed resumes in job",
+)
+def trigger_matching(
+    id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> MatchSummaryResponse:
+    """Calculate match scores and explanations for all parsed candidate resumes."""
+    results = ranker.score_all_resumes_for_job(db=db, user=current_user, job_id=id)
+    return MatchSummaryResponse(
+        job_id=id,
+        total_scored=len(results),
+        message=f"Scored {len(results)} candidate resume(s).",
+    )
+
+
+@router.get(
+    "/{id}/ranking",
+    response_model=PaginatedRankingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get candidate ranking for a job opening",
+)
+def get_ranking(
+    id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+    min_score: float | None = Query(
+        None, ge=0.0, le=100.0, description="Minimum total score"
+    ),
+    skill: str | None = Query(
+        None, description="Filter candidates matching specific skill"
+    ),
+    min_exp: float | None = Query(
+        None, ge=0.0, description="Minimum experience sub-score"
+    ),
+    candidate_status: str | None = Query(
+        None, alias="status", description="Filter by candidate status"
+    ),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+) -> PaginatedRankingResponse:
+    """Retrieve explainable candidate rankings for a job with filtering."""
+    items, total = ranker.get_job_ranking(
+        db=db,
+        user=current_user,
+        job_id=id,
+        min_score=min_score,
+        skill_filter=skill,
+        min_exp=min_exp,
+        status_filter=candidate_status,
+        page=page,
+        page_size=page_size,
+    )
+    return PaginatedRankingResponse(
+        items=[RankedCandidateItem(**item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get(
+    "/{id}/candidates/{candidate_id}/match",
+    response_model=RankedCandidateItem,
+    status_code=status.HTTP_200_OK,
+    summary="Get candidate match details and breakdown for a job",
+)
+def get_candidate_match(
+    id: uuid.UUID,
+    candidate_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> RankedCandidateItem:
+    """Retrieve full explanation breakdown for a specific candidate on a job."""
+    items, _ = ranker.get_job_ranking(
+        db=db, user=current_user, job_id=id, page=1, page_size=1000
+    )
+    for it in items:
+        if it["candidate_id"] == str(candidate_id):
+            return RankedCandidateItem(**it)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Candidate match not found for this job opening.",
+    )
+
+
+@router.get(
+    "/{id}/export.csv",
+    status_code=status.HTTP_200_OK,
+    summary="Export candidate ranking as CSV",
+)
+def export_csv(
+    id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> Response:
+    """Export ranking table as a CSV download protected against formula injection."""
+    csv_content = ranker.export_ranking_csv(db=db, user=current_user, job_id=id)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="job_{id}_ranking.csv"'},
     )

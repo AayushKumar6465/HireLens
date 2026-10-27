@@ -115,3 +115,40 @@ class ExtractRequirementsResponse(BaseModel):
     extracted_skills: list[ExtractedSkillItem]
     suggested_min_experience_years: float | None = None
     suggested_education_level: str | None = None
+
+
+class RankedCandidateItem(BaseModel):
+    """Ranked candidate entry with score and explanation breakdown."""
+
+    match_id: str
+    job_id: str
+    candidate_id: str
+    candidate_name: str
+    candidate_email: str | None = None
+    candidate_phone: str | None = None
+    candidate_status: str
+    resume_id: str
+    total_score: float
+    skill_score: float | None = None
+    semantic_score: float | None = None
+    experience_score: float | None = None
+    education_score: float | None = None
+    breakdown: dict[str, Any]
+    created_at: str
+
+
+class PaginatedRankingResponse(BaseModel):
+    """Paginated response container for candidate ranking."""
+
+    items: list[RankedCandidateItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class MatchSummaryResponse(BaseModel):
+    """Response after executing candidate scoring against a job."""
+
+    job_id: uuid.UUID
+    total_scored: int
+    message: str = "Matching completed successfully."

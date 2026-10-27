@@ -30,14 +30,16 @@ from app.core.exceptions import (
 )
 from app.core.logging import configure_logging
 from app.core.rate_limit import limiter
+from app.tasks.processing import recover_stuck_resumes
 
 configure_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager enforcing startup security checks."""
+    """Lifespan context manager enforcing startup security checks and resume recovery."""
     validate_jwt_secret_for_startup()
+    recover_stuck_resumes()
     yield
 
 
