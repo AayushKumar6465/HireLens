@@ -2,12 +2,29 @@
 Pydantic schemas package.
 """
 
+from app.schemas.analytics import (
+    DashboardStatsResponse,
+    RecentCandidateItem,
+    ScoreBucket,
+    StatusFunnelItem,
+)
 from app.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
     TokenRefreshResponse,
     TokenResponse,
+)
+from app.schemas.candidate import (
+    CandidateBulkStatusUpdate,
+    CandidateDetailResponse,
+    CandidateStatusUpdate,
+)
+from app.schemas.compare import (
+    CandidateCompareItem,
+    CompareRequest,
+    CompareResponse,
+    SkillMatrixRow,
 )
 from app.schemas.job import (
     ExtractedSkillItem,
@@ -30,10 +47,21 @@ from app.schemas.resume import (
     ResumeStatusResponse,
     ResumeUploadItemResult,
 )
+from app.schemas.setting import (
+    ScoringWeightsSchema,
+    ScoringWeightsUpdate,
+)
 from app.schemas.user import PaginatedUsersResponse, UserResponse
 
 __all__ = [
     "BatchUploadResponse",
+    "CandidateBulkStatusUpdate",
+    "CandidateCompareItem",
+    "CandidateDetailResponse",
+    "CandidateStatusUpdate",
+    "CompareRequest",
+    "CompareResponse",
+    "DashboardStatsResponse",
     "ExtractRequirementsResponse",
     "ExtractedSkillItem",
     "JobCreate",
@@ -47,6 +75,7 @@ __all__ = [
     "PaginatedRankingResponse",
     "PaginatedUsersResponse",
     "RankedCandidateItem",
+    "RecentCandidateItem",
     "RefreshTokenRequest",
     "RegisterRequest",
     "ResumeDuplicateItemResult",
@@ -54,6 +83,11 @@ __all__ = [
     "ResumeResponse",
     "ResumeStatusResponse",
     "ResumeUploadItemResult",
+    "ScoreBucket",
+    "ScoringWeightsSchema",
+    "ScoringWeightsUpdate",
+    "SkillMatrixRow",
+    "StatusFunnelItem",
     "TokenRefreshResponse",
     "TokenResponse",
     "UserResponse",

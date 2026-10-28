@@ -28,7 +28,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.models.job import Job
 from app.models.user import User
+from app.schemas.compare import (
+    CandidateCompareItem,
+    CompareRequest,
+    CompareResponse,
+    SkillMatrixRow,
+)
 from app.schemas.job import (
     ExtractRequirementsResponse,
     JobCreate,
@@ -315,4 +322,101 @@ def export_csv(
         content=csv_content,
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="job_{id}_ranking.csv"'},
+    )
+
+
+@router.post(
+    "/{id}/compare",
+    response_model=CompareResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Compare candidates side-by-side",
+)
+def compare_candidates(
+    id: uuid.UUID,
+    payload: CompareRequest,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> CompareResponse:
+    """
+    Compare 2 to 4 candidates side-by-side on a job opening.
+    Builds a unified skill matrix and compares composite sub-scores.
+    """
+    job = db.query(Job).filter(Job.id == id, Job.owner_id == current_user.id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job opening not found.",
+        )
+
+    # Retrieve all ranked candidates for the job
+    items, _ = ranker.get_job_ranking(
+        db=db, user=current_user, job_id=id, page=1, page_size=1000
+    )
+    items_by_cand_id = {it["candidate_id"]: it for it in items}
+
+    target_cand_ids = [str(cid) for cid in payload.candidate_ids]
+    compared_candidates: list[CandidateCompareItem] = []
+
+    for cid_str in target_cand_ids:
+        it = items_by_cand_id.get(cid_str)
+        if not it:
+            continue
+        breakdown = it.get("breakdown", {})
+        matched_skills_names = [s["skill"] for s in breakdown.get("matched_skills", [])]
+        missing_req = breakdown.get("missing_required", [])
+
+        exp_info = breakdown.get("experience", {})
+        edu_info = breakdown.get("education", {})
+
+        comp_item = CandidateCompareItem(
+            candidate_id=uuid.UUID(it["candidate_id"]),
+            candidate_name=it["candidate_name"],
+            candidate_email=it.get("candidate_email"),
+            status=it.get("candidate_status", "new"),
+            total_score=it["total_score"],
+            skill_score=it.get("skill_score"),
+            semantic_score=it.get("semantic_score"),
+            experience_score=it.get("experience_score"),
+            education_score=it.get("education_score"),
+            total_experience_years=exp_info.get("candidate_years"),
+            highest_degree=edu_info.get("candidate_level"),
+            matched_skills=matched_skills_names,
+            missing_required=missing_req,
+        )
+        compared_candidates.append(comp_item)
+
+    if len(compared_candidates) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least 2 valid candidates must be selected for comparison.",
+        )
+
+    # Build skill matrix across all job requirements
+    job_reqs = {r.skill: r.importance for r in job.requirements}
+    all_skills_seen = list(job_reqs.keys())
+    for c in compared_candidates:
+        for s in c.matched_skills:
+            if s not in all_skills_seen:
+                all_skills_seen.append(s)
+
+    skill_matrix: list[SkillMatrixRow] = []
+    for skill_name in all_skills_seen:
+        importance = job_reqs.get(skill_name, "extra")
+        cand_status = {
+            str(c.candidate_id): (skill_name in c.matched_skills)
+            for c in compared_candidates
+        }
+        skill_matrix.append(
+            SkillMatrixRow(
+                skill=skill_name,
+                importance=importance,
+                candidate_status=cand_status,
+            )
+        )
+
+    return CompareResponse(
+        job_id=job.id,
+        job_title=job.title,
+        candidates=compared_candidates,
+        skill_matrix=skill_matrix,
     )
