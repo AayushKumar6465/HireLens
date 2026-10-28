@@ -1,6 +1,6 @@
 # HireLens
 
-> AI-Powered Resume Screening and Candidate Ranking Platform — a college minor project.
+> AI-Powered Resume Screening and Candidate Ranking Platform 
 
 HireLens lets recruiters create job openings, bulk-upload resumes (PDF/DOCX), parse them into structured data, and rank candidates against each job using an **explainable hybrid scoring engine** (skills, semantic similarity, experience, education).
 
