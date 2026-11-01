@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field, model_validator
 class ScoringWeightsSchema(BaseModel):
     """Component scoring weights."""
 
-    skills: float = Field(default=0.45, ge=0.0, le=1.0)
-    semantic: float = Field(default=0.25, ge=0.0, le=1.0)
-    experience: float = Field(default=0.15, ge=0.0, le=1.0)
-    education: float = Field(default=0.15, ge=0.0, le=1.0)
+    skills: float = Field(default=0.40, ge=0.0, le=1.0)
+    semantic: float = Field(default=0.30, ge=0.0, le=1.0)
+    experience: float = Field(default=0.20, ge=0.0, le=1.0)
+    education: float = Field(default=0.10, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
     def validate_sum(self) -> ScoringWeightsSchema:

@@ -19,6 +19,7 @@ from app.schemas.candidate import (
     CandidateBulkStatusUpdate,
     CandidateDetailResponse,
     CandidateStatusUpdate,
+    PaginatedCandidatesResponse,
 )
 from app.schemas.compare import (
     CandidateCompareItem,
@@ -71,6 +72,7 @@ __all__ = [
     "JobUpdate",
     "LoginRequest",
     "MatchSummaryResponse",
+    "PaginatedCandidatesResponse",
     "PaginatedJobsResponse",
     "PaginatedRankingResponse",
     "PaginatedUsersResponse",

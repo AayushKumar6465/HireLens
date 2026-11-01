@@ -18,16 +18,16 @@ function ScoringWeightsConfig({ initialWeights, onUpdated, onError, onOpenRescor
   const queryClient = useQueryClient();
 
   const [skillsWeight, setSkillsWeight] = useState(
-    Math.round((initialWeights?.skills ?? 0.45) * 100)
+    Math.round((initialWeights?.skills ?? 0.40) * 100)
   );
   const [semanticWeight, setSemanticWeight] = useState(
-    Math.round((initialWeights?.semantic ?? 0.25) * 100)
+    Math.round((initialWeights?.semantic ?? 0.30) * 100)
   );
   const [experienceWeight, setExperienceWeight] = useState(
-    Math.round((initialWeights?.experience ?? 0.15) * 100)
+    Math.round((initialWeights?.experience ?? 0.20) * 100)
   );
   const [educationWeight, setEducationWeight] = useState(
-    Math.round((initialWeights?.education ?? 0.15) * 100)
+    Math.round((initialWeights?.education ?? 0.10) * 100)
   );
 
   const currentSum =
@@ -183,14 +183,14 @@ function ScoringWeightsConfig({ initialWeights, onUpdated, onError, onOpenRescor
           <button
             type="button"
             onClick={() => {
-              setSkillsWeight(45);
-              setSemanticWeight(25);
-              setExperienceWeight(15);
-              setEducationWeight(15);
+              setSkillsWeight(40);
+              setSemanticWeight(30);
+              setExperienceWeight(20);
+              setEducationWeight(10);
             }}
             className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-semibold cursor-pointer"
           >
-            Reset to Standard Defaults (45 / 25 / 15 / 15)
+            Reset to Standard Defaults (40 / 30 / 20 / 10)
           </button>
 
           <button

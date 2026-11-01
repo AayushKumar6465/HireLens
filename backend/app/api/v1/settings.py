@@ -26,10 +26,10 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[Session, Depends(get_db)]
 
 DEFAULT_WEIGHTS = {
-    "skills": 0.45,
-    "semantic": 0.25,
-    "experience": 0.15,
-    "education": 0.15,
+    "skills": 0.40,
+    "semantic": 0.30,
+    "experience": 0.20,
+    "education": 0.10,
 }
 
 
@@ -47,10 +47,10 @@ def get_scoring_weights(
     setting = db.query(AppSetting).filter(AppSetting.key == "scoring_weights").first()
     if setting and isinstance(setting.value, dict):
         return {
-            "skills": float(setting.value.get("skills", 0.45)),
-            "semantic": float(setting.value.get("semantic", 0.25)),
-            "experience": float(setting.value.get("experience", 0.15)),
-            "education": float(setting.value.get("education", 0.15)),
+            "skills": float(setting.value.get("skills", 0.40)),
+            "semantic": float(setting.value.get("semantic", 0.30)),
+            "experience": float(setting.value.get("experience", 0.20)),
+            "education": float(setting.value.get("education", 0.10)),
         }
     return DEFAULT_WEIGHTS
 

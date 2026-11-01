@@ -167,6 +167,86 @@ def compute_match_breakdown(
     }
 
 
+def score_parsed_resume(
+    db: Session,
+    resume: Resume,
+) -> MatchResult | None:
+    """
+    Score a parsed resume against its associated job opening and persist the match result.
+
+    Idempotent: updates existing MatchResult if one already exists for (job_id, resume_id).
+    Returns None if resume has no job_id, is not parsed, or job does not exist.
+    """
+    if not resume.job_id or resume.parse_status != "done":
+        return None
+
+    job = db.query(Job).filter(Job.id == resume.job_id).first()
+    if not job:
+        return None
+
+    pr: ParsedResume | None = resume.parsed_resume
+    if not pr:
+        pr = (
+            db.query(ParsedResume)
+            .filter(ParsedResume.resume_id == resume.id)
+            .first()
+        )
+    if not pr:
+        return None
+
+    # Format requirements
+    reqs = [
+        {"skill": r.skill, "importance": r.importance, "weight": r.weight}
+        for r in job.requirements
+    ]
+
+    breakdown = compute_match_breakdown(
+        job_requirements=reqs,
+        job_description=job.description,
+        job_min_experience=job.min_experience_years,
+        job_education_level=job.education_level,
+        resume_skills=pr.skills or [],
+        resume_raw_text=pr.raw_text or "",
+        resume_experience_years=pr.total_experience_years,
+        resume_highest_degree=pr.highest_degree,
+        weights_override=job.weights_override,
+    )
+
+    # Upsert match result (idempotent: never creates duplicates)
+    match_record = (
+        db.query(MatchResult)
+        .filter(MatchResult.job_id == job.id, MatchResult.resume_id == resume.id)
+        .first()
+    )
+    if not match_record:
+        match_record = MatchResult(
+            job_id=job.id,
+            candidate_id=resume.candidate_id,
+            resume_id=resume.id,
+            total_score=breakdown["total_score"],
+            skill_score=breakdown["sub_scores"]["skills"],
+            semantic_score=breakdown["sub_scores"]["semantic"],
+            experience_score=breakdown["sub_scores"]["experience"],
+            education_score=breakdown["sub_scores"]["education"],
+            breakdown=breakdown,
+            scoring_version=breakdown["scoring_version"],
+        )
+        db.add(match_record)
+    else:
+        match_record.total_score = breakdown["total_score"]
+        match_record.skill_score = breakdown["sub_scores"]["skills"]
+        match_record.semantic_score = breakdown["sub_scores"]["semantic"]
+        match_record.experience_score = breakdown["sub_scores"]["experience"]
+        match_record.education_score = breakdown["sub_scores"]["education"]
+        match_record.breakdown = breakdown
+        match_record.scoring_version = breakdown["scoring_version"]
+
+    db.commit()
+    db.refresh(match_record)
+    log_event(logger, "candidate_scored", job_id=str(job.id), resume_id=str(resume.id))
+    return match_record
+
+
 def score_resume_for_job(
     db: Session,
     user: User,
@@ -206,59 +286,21 @@ def score_resume_for_job(
             },
         )
 
-    pr: ParsedResume = resume.parsed_resume
+    # Ensure resume is linked to this job_id
+    if resume.job_id != job.id:
+        resume.job_id = job.id
+        db.commit()
 
-    # Format requirements
-    reqs = [
-        {"skill": r.skill, "importance": r.importance, "weight": r.weight}
-        for r in job.requirements
-    ]
-
-    breakdown = compute_match_breakdown(
-        job_requirements=reqs,
-        job_description=job.description,
-        job_min_experience=job.min_experience_years,
-        job_education_level=job.education_level,
-        resume_skills=pr.skills or [],
-        resume_raw_text=pr.raw_text or "",
-        resume_experience_years=pr.total_experience_years,
-        resume_highest_degree=pr.highest_degree,
-        weights_override=job.weights_override,
-    )
-
-    # Upsert match result
-    match_record = (
-        db.query(MatchResult)
-        .filter(MatchResult.job_id == job.id, MatchResult.resume_id == resume.id)
-        .first()
-    )
-    if not match_record:
-        match_record = MatchResult(
-            job_id=job.id,
-            candidate_id=resume.candidate_id,
-            resume_id=resume.id,
-            total_score=breakdown["total_score"],
-            skill_score=breakdown["sub_scores"]["skills"],
-            semantic_score=breakdown["sub_scores"]["semantic"],
-            experience_score=breakdown["sub_scores"]["experience"],
-            education_score=breakdown["sub_scores"]["education"],
-            breakdown=breakdown,
-            scoring_version=breakdown["scoring_version"],
+    result = score_parsed_resume(db, resume)
+    if not result:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "internal_error",
+                "message": "Failed to compute match result.",
+            },
         )
-        db.add(match_record)
-    else:
-        match_record.total_score = breakdown["total_score"]
-        match_record.skill_score = breakdown["sub_scores"]["skills"]
-        match_record.semantic_score = breakdown["sub_scores"]["semantic"]
-        match_record.experience_score = breakdown["sub_scores"]["experience"]
-        match_record.education_score = breakdown["sub_scores"]["education"]
-        match_record.breakdown = breakdown
-        match_record.scoring_version = breakdown["scoring_version"]
-
-    db.commit()
-    db.refresh(match_record)
-    log_event(logger, "candidate_scored", job_id=str(job.id), resume_id=str(resume.id))
-    return match_record
+    return result
 
 
 def score_all_resumes_for_job(

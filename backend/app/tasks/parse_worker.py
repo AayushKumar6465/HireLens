@@ -111,6 +111,18 @@ def run_worker(resume_id_str: str) -> int:
         resume.parse_error = None
         db.commit()
         log_event(logger, "resume_parsed_success", resume_id=str(resume.id))
+
+        # Auto-score candidate if resume is associated with a job opening
+        if resume.job_id:
+            try:
+                from app.services.matching.ranker import score_parsed_resume
+
+                score_parsed_resume(db, resume)
+            except (OSError, RuntimeError, ValueError) as score_exc:
+                logger.error(
+                    "Auto-scoring failed for resume %s: %s", resume.id, score_exc
+                )
+
         return 0
 
     except ScannedOrEmptyError:

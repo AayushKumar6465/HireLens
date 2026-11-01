@@ -9,7 +9,14 @@ A candidate score is **decision support** for human recruiters; HireLens **never
 ### Default Scoring Formula
 $$\text{Total Score} = 0.40 \cdot S_{\text{skills}} + 0.30 \cdot S_{\text{semantic}} + 0.20 \cdot S_{\text{exp}} + 0.10 \cdot S_{\text{edu}}$$
 
-Weights may be overridden per job posting (`weights_override`), but must always sum to $1.0$.
+The standard system-wide default component weights are:
+* **Skills Match ($S_{\text{skills}}$)**: $40\%$ ($0.40$) — Keywords and canonical skill matching with evidence snippets (required skills carry $2\times$ weight).
+* **Semantic Similarity ($S_{\text{semantic}}$)**: $30\%$ ($0.30$) — TF-IDF cosine similarity comparing job description with de-identified resume text.
+* **Experience Duration ($S_{\text{exp}}$)**: $20\%$ ($0.20$) — Deduplicated candidate experience years vs. required years.
+* **Education Hierarchy ($S_{\text{edu}}$)**: $10\%$ ($0.10$) — Standardized degree rank progression against job requirement.
+* **Sum**: $0.40 + 0.30 + 0.20 + 0.10 = 1.00$ ($100\%$).
+
+Weights may be overridden per job posting (`weights_override`) or customized globally in Settings, but must always strictly sum to $1.0$.
 
 ---
 

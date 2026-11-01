@@ -54,3 +54,14 @@ class CandidateDetailResponse(BaseModel):
     notes: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class PaginatedCandidatesResponse(BaseModel):
+    """Paginated container for candidate listings."""
+
+    items: list[CandidateDetailResponse]
+    total: int
+    page: int
+    page_size: int
+
+    model_config = ConfigDict(from_attributes=True)

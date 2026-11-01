@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -36,6 +36,20 @@ export default function JobDetail() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadFeedback, setUploadFeedback] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isParsingBatch, setIsParsingBatch] = useState(false);
+
+  const pollingTimerRef = useRef(null);
+  const isPollingRef = useRef(false);
+
+  // Clear polling timers on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+      }
+      isPollingRef.current = false;
+    };
+  }, []);
 
   // Filter & Selection states
   const [searchTerm, setSearchTerm] = useState('');
@@ -172,10 +186,75 @@ export default function JobDetail() {
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
-      // Auto-trigger scoring after background parsing settles
-      setTimeout(() => {
-        scoreMutation.mutate();
-      }, 3500);
+      // Bounded polling for background parse & auto-score completion
+      const uploadedList = res.data.uploaded || [];
+      if (uploadedList.length > 0) {
+        if (pollingTimerRef.current) {
+          clearTimeout(pollingTimerRef.current);
+        }
+        isPollingRef.current = true;
+        setIsParsingBatch(true);
+        const resumeIds = uploadedList.map((u) => u.resume_id);
+
+        const poll = async (idsToPoll, attempt = 1) => {
+          if (!isPollingRef.current || idsToPoll.length === 0) return;
+
+          if (attempt > 25) {
+            isPollingRef.current = false;
+            setIsParsingBatch(false);
+            queryClient.invalidateQueries(['job-ranking', id]);
+            queryClient.invalidateQueries(['dashboard-analytics']);
+            return;
+          }
+
+          try {
+            const statuses = await Promise.all(
+              idsToPoll.map(async (resumeId) => {
+                try {
+                  const statusRes = await api.get(`/resumes/${resumeId}/status`);
+                  return {
+                    resumeId,
+                    status: statusRes.data.parse_status,
+                    error: statusRes.data.parse_error,
+                  };
+                } catch {
+                  return { resumeId, status: 'error', error: 'fetch_failed' };
+                }
+              })
+            );
+
+            const stillPending = statuses.filter(
+              (s) => s.status === 'pending' || s.status === 'processing'
+            );
+
+            if (stillPending.length === 0) {
+              isPollingRef.current = false;
+              setIsParsingBatch(false);
+              queryClient.invalidateQueries(['job-ranking', id]);
+              queryClient.invalidateQueries(['dashboard-analytics']);
+
+              const failedParses = statuses.filter(
+                (s) => s.status === 'failed' || s.status === 'error'
+              );
+              if (failedParses.length > 0) {
+                setUploadFeedback((prev) => (prev ? { ...prev, parseFailures: failedParses } : null));
+              }
+            } else {
+              const remainingIds = stillPending.map((s) => s.resumeId);
+              pollingTimerRef.current = setTimeout(() => {
+                poll(remainingIds, attempt + 1);
+              }, 1500);
+            }
+          } catch {
+            isPollingRef.current = false;
+            setIsParsingBatch(false);
+          }
+        };
+
+        pollingTimerRef.current = setTimeout(() => {
+          poll(resumeIds, 1);
+        }, 1500);
+      }
     } catch (err) {
       const msg = err.response?.data?.error?.message || 'Upload failed.';
       setUploadFeedback({ error: msg });
@@ -995,10 +1074,29 @@ export default function JobDetail() {
               </h4>
               {uploadFeedback.uploaded?.length > 0 && (
                 <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2.5">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  {isParsingBatch ? (
+                    <Loader2 className="h-4 w-4 shrink-0 text-indigo-600 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  )}
                   <span>
-                    Successfully uploaded {uploadFeedback.uploaded.length} resume(s). Parsing pipeline dispatched in background. Matching will recalculate automatically.
+                    {isParsingBatch
+                      ? `Uploaded ${uploadFeedback.uploaded.length} resume(s). Processing & scoring in background...`
+                      : `Successfully processed ${uploadFeedback.uploaded.length} resume(s). Matching scores updated.`}
                   </span>
+                </div>
+              )}
+              {uploadFeedback.parseFailures?.length > 0 && (
+                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs rounded-xl space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-700">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Parsing Failures ({uploadFeedback.parseFailures.length}):</span>
+                  </div>
+                  {uploadFeedback.parseFailures.map((pf, i) => (
+                    <p key={i} className="pl-5 text-[11px]">
+                      • Resume {pf.resumeId}: Reason: {pf.error || 'unreadable or scanned'}
+                    </p>
+                  ))}
                 </div>
               )}
               {uploadFeedback.duplicates?.length > 0 && (
@@ -1137,7 +1235,9 @@ export default function JobDetail() {
                 <div>
                   <div className="flex justify-between text-xs font-medium mb-1">
                     <span className="text-slate-700 dark:text-slate-300">
-                      Skills Match (45% weight)
+                      {selectedCandidate.breakdown?.weights_used?.skills != null
+                        ? `Skills Match (${Math.round(selectedCandidate.breakdown.weights_used.skills * 100)}% weight)`
+                        : 'Skills Match (40% weight)'}
                     </span>
                     <span className="font-mono font-bold text-slate-900 dark:text-white">
                       {selectedCandidate.skill_score !== null
@@ -1157,7 +1257,9 @@ export default function JobDetail() {
                 <div>
                   <div className="flex justify-between text-xs font-medium mb-1">
                     <span className="text-slate-700 dark:text-slate-300">
-                      Semantic Similarity (25% weight)
+                      {selectedCandidate.breakdown?.weights_used?.semantic != null
+                        ? `Semantic Similarity (${Math.round(selectedCandidate.breakdown.weights_used.semantic * 100)}% weight)`
+                        : 'Semantic Similarity (30% weight)'}
                     </span>
                     <span className="font-mono font-bold text-slate-900 dark:text-white">
                       {selectedCandidate.semantic_score !== null
@@ -1177,7 +1279,9 @@ export default function JobDetail() {
                 <div>
                   <div className="flex justify-between text-xs font-medium mb-1">
                     <span className="text-slate-700 dark:text-slate-300">
-                      Experience (15% weight)
+                      {selectedCandidate.breakdown?.weights_used?.experience != null
+                        ? `Experience (${Math.round(selectedCandidate.breakdown.weights_used.experience * 100)}% weight)`
+                        : 'Experience (20% weight)'}
                     </span>
                     <span className="font-mono font-bold text-slate-900 dark:text-white">
                       {selectedCandidate.experience_score !== null
@@ -1197,7 +1301,9 @@ export default function JobDetail() {
                 <div>
                   <div className="flex justify-between text-xs font-medium mb-1">
                     <span className="text-slate-700 dark:text-slate-300">
-                      Education (15% weight)
+                      {selectedCandidate.breakdown?.weights_used?.education != null
+                        ? `Education (${Math.round(selectedCandidate.breakdown.weights_used.education * 100)}% weight)`
+                        : 'Education (10% weight)'}
                     </span>
                     <span className="font-mono font-bold text-slate-900 dark:text-white">
                       {selectedCandidate.education_score !== null
