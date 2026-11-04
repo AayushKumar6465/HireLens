@@ -105,8 +105,22 @@ export default function JobDetail() {
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['job-ranking', id]);
-      queryClient.invalidateQueries(['dashboard-analytics']);
+      queryClient.invalidateQueries({ queryKey: ['job-ranking', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
+    },
+    onError: (err) => {
+      setUploadFeedback({
+        total_uploaded: 0,
+        total_duplicates: 0,
+        total_failed: 1,
+        failed: [
+          {
+            original_filename: 'Matching Calculation',
+            error_code: err.response?.data?.error?.code || 'error',
+            message: err.response?.data?.error?.message || 'Failed to trigger candidate matching.',
+          },
+        ],
+      });
     },
   });
 
@@ -120,8 +134,8 @@ export default function JobDetail() {
       return res.data;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries(['job-ranking', id]);
-      queryClient.invalidateQueries(['dashboard-analytics']);
+      queryClient.invalidateQueries({ queryKey: ['job-ranking', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
       if (selectedCandidate && selectedCandidate.candidate_id === updated.id) {
         setSelectedCandidate({
           ...selectedCandidate,
@@ -129,6 +143,9 @@ export default function JobDetail() {
           notes: updated.notes,
         });
       }
+    },
+    onError: (err) => {
+      alert(err.response?.data?.error?.message || 'Failed to update candidate status.');
     },
   });
 
@@ -142,10 +159,13 @@ export default function JobDetail() {
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['job-ranking', id]);
-      queryClient.invalidateQueries(['dashboard-analytics']);
+      queryClient.invalidateQueries({ queryKey: ['job-ranking', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
       setSelectedCandidateIds([]);
       setConfirmRejectOpen(false);
+    },
+    onError: (err) => {
+      alert(err.response?.data?.error?.message || 'Failed to bulk-update candidate status.');
     },
   });
 
@@ -179,9 +199,7 @@ export default function JobDetail() {
     formData.append('job_id', id);
 
     try {
-      const res = await api.post('/resumes/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/resumes/upload', formData);
       setUploadFeedback(res.data);
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -202,8 +220,8 @@ export default function JobDetail() {
           if (attempt > 25) {
             isPollingRef.current = false;
             setIsParsingBatch(false);
-            queryClient.invalidateQueries(['job-ranking', id]);
-            queryClient.invalidateQueries(['dashboard-analytics']);
+            queryClient.invalidateQueries({ queryKey: ['job-ranking', id] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
             return;
           }
 
@@ -230,8 +248,8 @@ export default function JobDetail() {
             if (stillPending.length === 0) {
               isPollingRef.current = false;
               setIsParsingBatch(false);
-              queryClient.invalidateQueries(['job-ranking', id]);
-              queryClient.invalidateQueries(['dashboard-analytics']);
+              queryClient.invalidateQueries({ queryKey: ['job-ranking', id] });
+              queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
 
               const failedParses = statuses.filter(
                 (s) => s.status === 'failed' || s.status === 'error'

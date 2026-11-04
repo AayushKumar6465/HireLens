@@ -118,7 +118,7 @@ def run_worker(resume_id_str: str) -> int:
                 from app.services.matching.ranker import score_parsed_resume
 
                 score_parsed_resume(db, resume)
-            except (OSError, RuntimeError, ValueError) as score_exc:
+            except Exception as score_exc:  # noqa: BLE001
                 logger.error(
                     "Auto-scoring failed for resume %s: %s", resume.id, score_exc
                 )
@@ -145,7 +145,7 @@ def run_worker(resume_id_str: str) -> int:
             log_event(logger, "resume_parse_error", resume_id=str(resume.id))
         return 0
 
-    except (OSError, RuntimeError, ValueError) as exc:
+    except Exception as exc:  # noqa: BLE001
         db.rollback()
         logger.error("Unexpected worker exception: %s", exc)
         resume = db.query(Resume).filter(Resume.id == resume_id).first()

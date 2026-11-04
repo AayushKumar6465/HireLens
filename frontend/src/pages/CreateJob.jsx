@@ -79,6 +79,7 @@ export default function CreateJob() {
     setExtractSuccess(false);
     setError(null);
 
+    let tempJobId = null;
     try {
       // Create temporary job to leverage backend extract-requirements endpoint
       const tempJob = await api.post('/jobs', {
@@ -90,9 +91,10 @@ export default function CreateJob() {
         education_level: educationLevel || null,
         requirements: [],
       });
+      tempJobId = tempJob.data.id;
 
       const extractRes = await api.post(
-        `/jobs/${tempJob.data.id}/extract-requirements`
+        `/jobs/${tempJobId}/extract-requirements`
       );
       const extracted = extractRes.data.extracted_skills || [];
 
@@ -115,12 +117,16 @@ export default function CreateJob() {
       if (extractRes.data.suggested_education_level && !educationLevel) {
         setEducationLevel(extractRes.data.suggested_education_level);
       }
-
-      // Cleanup draft job
-      await api.delete(`/jobs/${tempJob.data.id}`);
     } catch {
       setError('Unable to auto-extract skills. You can still add skills manually below.');
     } finally {
+      if (tempJobId) {
+        try {
+          await api.delete(`/jobs/${tempJobId}`);
+        } catch {
+          // ignore cleanup error
+        }
+      }
       setIsExtracting(false);
     }
   };

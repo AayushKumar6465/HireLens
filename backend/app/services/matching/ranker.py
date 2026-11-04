@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger, log_event
+from app.models.app_setting import AppSetting
 from app.models.candidate import Candidate
 from app.models.job import Job
 from app.models.match_result import MatchResult
@@ -170,6 +171,7 @@ def compute_match_breakdown(
 def score_parsed_resume(
     db: Session,
     resume: Resume,
+    weights_override: dict[str, float] | None = None,
 ) -> MatchResult | None:
     """
     Score a parsed resume against its associated job opening and persist the match result.
@@ -200,6 +202,16 @@ def score_parsed_resume(
         for r in job.requirements
     ]
 
+    active_weights = weights_override or job.weights_override
+    if not active_weights:
+        setting = db.query(AppSetting).filter(AppSetting.key == "scoring_weights").first()
+        if setting and isinstance(setting.value, dict):
+            active_weights = {
+                k: float(v)
+                for k, v in setting.value.items()
+                if k in ("skills", "semantic", "experience", "education")
+            }
+
     breakdown = compute_match_breakdown(
         job_requirements=reqs,
         job_description=job.description,
@@ -209,7 +221,7 @@ def score_parsed_resume(
         resume_raw_text=pr.raw_text or "",
         resume_experience_years=pr.total_experience_years,
         resume_highest_degree=pr.highest_degree,
-        weights_override=job.weights_override,
+        weights_override=active_weights,
     )
 
     # Upsert match result (idempotent: never creates duplicates)
@@ -277,12 +289,12 @@ def score_resume_for_job(
             detail={"code": "not_found", "message": "Resume not found."},
         )
 
-    if not resume.parsed_resume:
+    if resume.parse_status != "done" or not resume.parsed_resume:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "bad_request",
-                "message": "Resume has not been parsed yet.",
+                "message": "Resume has not been successfully parsed yet.",
             },
         )
 
@@ -301,6 +313,37 @@ def score_resume_for_job(
             },
         )
     return result
+
+
+def score_candidates_for_job(
+    db: Session,
+    user: User,
+    job_id: uuid.UUID,
+    weights: dict[str, float] | None = None,
+) -> int:
+    """Score all parsed resumes attached to the job and return count scored."""
+    job = db.query(Job).filter(Job.id == job_id, Job.owner_id == user.id).first()
+    if not job:
+        return 0
+
+    resumes = (
+        db.query(Resume)
+        .join(Candidate, Resume.candidate_id == Candidate.id)
+        .filter(
+            Candidate.owner_id == user.id,
+            Resume.parse_status == "done",
+            Resume.job_id == job.id,
+        )
+        .all()
+    )
+
+    scored_count = 0
+    for r in resumes:
+        if r.parsed_resume:
+            score_parsed_resume(db, r, weights_override=weights)
+            scored_count += 1
+
+    return scored_count
 
 
 def score_all_resumes_for_job(

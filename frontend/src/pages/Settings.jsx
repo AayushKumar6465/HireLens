@@ -50,7 +50,7 @@ function ScoringWeightsConfig({ initialWeights, onUpdated, onError, onOpenRescor
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['scoring-weights']);
+      queryClient.invalidateQueries({ queryKey: ['scoring-weights'] });
       onUpdated('Scoring weights updated successfully.');
       onOpenRescoreConfirm();
     },
@@ -246,7 +246,7 @@ export default function Settings() {
         type: 'success',
         message: data.message || 'All candidate matches re-scored with new weights.',
       });
-      queryClient.invalidateQueries(['dashboard-analytics']);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
     },
     onError: (err) => {
       setFeedback({

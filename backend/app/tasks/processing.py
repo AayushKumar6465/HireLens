@@ -80,6 +80,15 @@ def process_resume_task(resume_id: uuid.UUID) -> None:
                     res.returncode,
                     res.stderr,
                 )
+                db.query(Resume).filter(Resume.id == resume_id).update(
+                    {
+                        "parse_status": "failed",
+                        "parse_error": "corrupted_file",
+                        "updated_at": func.now(),
+                    },
+                    synchronize_session=False,
+                )
+                db.commit()
         except subprocess.TimeoutExpired:
             log_event(logger, "resume_parse_timeout", resume_id=str(resume_id))
             db.query(Resume).filter(Resume.id == resume_id).update(
