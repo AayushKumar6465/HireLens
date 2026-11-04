@@ -217,6 +217,7 @@ function ScoringWeightsConfig({ initialWeights, onUpdated, onError, onOpenRescor
   );
 }
 
+
 export default function Settings() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();

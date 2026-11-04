@@ -345,7 +345,7 @@ export default function Dashboard() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="font-mono font-bold px-2 py-0.5 rounded-full text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                        {cand.total_score.toFixed(1)}%
+                        {cand.total_score != null ? `${cand.total_score.toFixed(1)}%` : '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3">

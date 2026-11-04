@@ -306,7 +306,7 @@ export default function JobDetail() {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `candidate_resume_${resumeId.slice(0, 8)}.pdf`);
+      link.setAttribute('download', `candidate_resume_${resumeId.slice(0, 8)}`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -1511,7 +1511,7 @@ export default function JobDetail() {
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-3">
                 Unified Skill Matrix
               </h4>
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 text-[10px] font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                     <tr>

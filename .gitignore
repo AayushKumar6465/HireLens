@@ -31,3 +31,6 @@ htmlcov/
 # Alembic
 backend/alembic/versions/__pycache__/
 docs/VIVA_GUIDE.md
+
+# Demo assets (synthetic resume files, generator scripts, never committed)
+demo_assets/
