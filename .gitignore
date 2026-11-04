@@ -30,3 +30,4 @@ htmlcov/
 
 # Alembic
 backend/alembic/versions/__pycache__/
+docs/VIVA_GUIDE.md
